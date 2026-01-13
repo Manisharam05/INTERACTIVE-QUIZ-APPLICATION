@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Interactive Quiz App</title>
+    <style>
+        /* Professional, responsive styling with modern design principles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background 0.3s ease;
+        }
+        .quiz-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #4a4a4a;
+        }
+        .start-screen, .question-screen, .result-screen {
+            display: none;
+        }
+        .active {
+            display: block;
+        }
+        .question {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        @media (min-width: 768px) {
+            .options {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            background: #f0f0f0;
+            color: #333;
+        }
+        button:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .correct {
+            background: #28a745 !important;
+            color: white;
+        }
+        .incorrect {
+            background: #dc3545 !important;
+            color: white;
+        }
+        .feedback {
+            margin-top: 20px;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 5px solid #007bff;
+        }
+        .progress {
+            margin-bottom: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+        }
+        .score {
+            font-size: 1.2em;
+            margin-top: 20px;
+        }
+        .restart-btn {
+            margin-top: 20px;
+            background: #007bff;
+            color: white;
+        }
+        .restart-btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <!-- Start Screen -->
+        <div class="start-screen active" id="start-screen">
+            <h1>Welcome to the Interactive Quiz</h1>
+            <p>Test your knowledge with this dynamic quiz. Answer questions, get instant feedback, and track your score!</p>
+            <button id="start-btn">Start Quiz</button>
+        </div>
+
+        <!-- Question Screen -->
+        <div class="question-screen" id="question-screen">
+            <div class="progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+            <div class="question" id="question" aria-live="polite"></div>
+            <div class="options" id="options" role="radiogroup"></div>
+            <div class="feedback" id="feedback" aria-live="assertive"></div>
+        </div>
+
+        <!-- Result Screen -->
+        <div class="result-screen" id="result-screen">
+            <h1>Quiz Complete!</h1>
+            <div class="score" id="score">Score: <span id="score-value"></span></div>
+            <button class="restart-btn" id="restart-btn">Restart Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        // Professional Quiz Class for encapsulation and maintainability
+        class Quiz {
+            constructor(questions) {
+                this.questions = questions; // Array of question objects
+                this.currentIndex = 0; // Current question index
+                this.score = 0; // User's score
+                this.elements = {
+                    startScreen: document.getElementById('start-screen'),
+                    questionScreen: document.getElementById('question-screen'),
+                    resultScreen: document.getElementById('result-screen'),
+                    question: document.getElementById('question'),
+                    options: document.getElementById('options'),
+                    feedback: document.getElementById('feedback'),
+                    progressFill: document.getElementById('progress-fill'),
+                    scoreValue: document.getElementById('score-value'),
+                    startBtn: document.getElementById('start-btn'),
+                    restartBtn: document.getElementById('restart-btn')
+                };
+                this.init(); // Initialize event listeners
+            }
+
+            // Initialize event listeners for start and restart
+            init() {
+                this.elements.startBtn.addEventListener('click', () => this.start());
+                this.elements.restartBtn.addEventListener('click', () => this.restart());
+            }
+
+            // Start the quiz: Hide start screen, show question screen, load first question
+            start() {
+                this.elements.startScreen.classList.remove('active');
+                this.elements.questionScreen.classList.add('active');
+                this.loadQuestion();
+            }
+
+            // Load the current question dynamically
+            loadQuestion() {
+                if (this.currentIndex >= this.questions.length) {
+                    this.showResults(); // End quiz if no more questions
+                    return;
+                }
+
+                const q = this.questions[this.currentIndex];
+                this.elements.question.textContent = q.question;
+                this.elements.options.innerHTML = ''; // Clear previous options
+                this.elements.feedback.textContent = ''; // Clear feedback
+
+                // Update progress bar
+                const progress = ((this.currentIndex + 1) / this.questions.length) * 100;
+                this.elements.progressFill.style.width = `${progress}%`;
+
+                // Create option buttons with accessibility
+                q.options.forEach((option, index) => {
+                    const btn = document.createElement('button');
+                    btn.textContent = option;
+                    btn.setAttribute('aria-label', `Option ${index + 1}: ${option}`);
+                    btn.addEventListener('click', () => this.checkAnswer(index));
+                    this.elements.options.appendChild(btn);
+                });
+            }
+
+            // Check the selected answer and provide instant feedback
+            checkAnswer(selectedIndex) {
+                const q = this.questions[this.currentIndex];
+                const buttons = this.elements.options.querySelectorAll('button');
+
+                // Disable buttons to prevent multiple clicks
+                buttons.forEach(btn => btn.disabled = true);
+
+                // Highlight correct/incorrect and update score
+                if (selectedIndex === q.correct) {
+                    buttons[selectedIndex].classList.add('correct');
+                    this.elements.feedback.textContent = `Correct! ${q.explanation}`;
+                    this.score++;
+                } else {
+                    buttons[selectedIndex].classList.add('incorrect');
+                    buttons[q.correct].classList.add('correct');
+                    this.elements.feedback.textContent = `Incorrect. ${q.explanation}`;
+                }
+
+                // Auto-advance to next question after delay for feedback
+                setTimeout(() => {
+                    this.currentIndex++;
+                    this.loadQuestion();
+                }, 2500); // 2.5 seconds for better readability
+            }
+
+            // Show final results with scoring
+            showResults() {
+                this.elements.questionScreen.classList.remove('active');
+                this.elements.resultScreen.classList.add('active');
+                this.elements.scoreValue.textContent = `${this.score}/${this.questions.length}`;
+            }
+
+            // Restart the quiz: Reset state and return to start
+            restart() {
+                this.currentIndex = 0;
+                this.score = 0;
+                this.elements.resultScreen.classList.remove('active');
+                this.elements.startScreen.classList.add('active');
+            }
+        }
+
+        // Sample questions array (easily customizable for dynamic loading)
+        const questions = [
+            {
+                question: "What is the capital of France?",
+                options: ["Berlin", "Madrid", "Paris", "Rome"],
+                correct: 2,
+                explanation: "Paris is the capital and most populous city of France."
+            },
+            {
+                question: "Which planet is known as the Red Planet?",
+                options: ["Earth", "Mars", "Jupiter", "Venus"],
+                correct: 1,
+                explanation: "Mars is called the Red Planet due to iron oxide on its surface."
+            },
+            {
+                question: "What is 2 + 2?",
+                options: ["3", "4", "5", "6"],
+                correct: 1,
+                explanation: "Basic arithmetic: 2 + 2 = 4."
+            },
+            {
+                question: "Who wrote 'To Kill a Mockingbird'?",
+                options: ["Harper Lee", "J.K. Rowling", "Mark Twain", "Ernest Hemingway"],
+                correct: 0,
+                explanation: "Harper Lee authored this Pulitzer Prize-winning novel."
+            },
+            {
+                question: "What is the largest ocean on Earth?",
+                options: ["Atlantic", "Indian", "Arctic", "Pacific"],
+                correct: 3,
+                explanation: "The Pacific Ocean covers about one-third of Earth's surface."
+            },
+            {
+                question: "What year did the first iPhone release?",
+                options: ["2005", "2007", "2009", "2011"],
+                correct: 1,
+                explanation: "Apple released the first iPhone on June 29, 2007."
+            },
+            {
+                question: "Which element has the chemical symbol 'O'?",
+                options: ["Oxygen", "Gold", "Osmium", "Ozone"],
+                correct: 0,
+                explanation: "Oxygen is a chemical element with symbol O and atomic number 8."
+            }
+        ];
+
+        // Instantiate and run the quiz
+        new Quiz(questions);
+    </script>
+</body>
+</html>
